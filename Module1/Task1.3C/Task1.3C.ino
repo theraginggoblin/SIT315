@@ -1,7 +1,7 @@
 /* 
-    Program for Arduino with pir motion sensor.
+    Program for Arduino with pir motion sensor and ir sensor.
     Uses interrupts with pir motion sensor to switch inbuilt led state.
-    Also uses interrupts and Timer1 with ultrasonic sensor to switch pin GREEN_LED_PIN state.
+    Also uses interrupts with IR sensor to switch pin GREEN_LED_PIN state.
 */
 
 // constants
