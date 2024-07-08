@@ -40,10 +40,12 @@ void handleActivation() {
         if (ledState == LOW) {
             turnOnLED();
             ledState = HIGH;
+            ledStateChangeTime = millis();
         }
         else {
             turnoffLED();
             ledState = LOW;
+            ledStateChangeTime = millis();
         }
     }
     
