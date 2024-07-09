@@ -7,7 +7,6 @@
 // constants
 int const MOTION_SENSOR_PIN = 3; // PIR motion sensor digital pin
 int const BUILTIN_LED_COOLDOWN = 1000; // minimum time in milliseconds between LED state changes
-int const TIMER1_TICK_COUNT = 12500; // number of ticks to set for COMPA on timer 1
 int const GREEN_LED_PIN = 11; // pin for green led
 int const GREEN_LED_COOLDOWN = 250; // minimum time in milliseconds between LED state changes
 int const IR_SENSOR_INPUT_PIN = 2; // pin for ir sensor
@@ -90,8 +89,7 @@ void setup() {
     // set motion sensor pin for interrupt - calls handleBuiltinLED on RISING
     attachInterrupt(digitalPinToInterrupt(MOTION_SENSOR_PIN), handleBuiltinLED, RISING);
 
-    // setup everything for Timer1 interrupts and its switching of green LED with 
-    // ultrasonic sensor
+    // setup everything for switching of green LED with ir sensor
     pinMode(GREEN_LED_PIN, OUTPUT);
     pinMode(IR_SENSOR_INPUT_PIN, INPUT);
     greenLEDStateChangeTime = millis();
