@@ -35,7 +35,7 @@ int* getPartitions(int length, int numPartitions) {
 */
 void partitionedRandomVector(int vector[], int partition_start, int partition_size) {
     for (int i = 0; i < partition_size; i++) {
-        // get random number modulo 100 and set at location i in array
+        // get random number modulo 100 and set at location i + partition_start in array
         vector[partition_start + i] = rand() % 100;
     }
 }
@@ -66,7 +66,7 @@ void parallelRandomVector(int vector[], int size, int numPartitions) {
     Adds partitions of v1 and v2 = v3
 */
 void partitionedVectorAdd(int v1[], int v2[], int v3[], int partition_start, int partition_size) {
-    // for loop counting up from 0 to size variable. element at v3[i] = sum of v1[i] and v2[i]
+    // within partition does i + partition_start to do v3[i] = sum of v1[i] and v2[i]
     for (int i = 0; i < partition_size; i++) {
         v3[i + partition_start] = v1[i + partition_start] + v2[i + partition_start];
         //cout << "\n" << partition_start << " " << v3[i + partition_start]; // used for debugging
@@ -104,6 +104,9 @@ int main(){
     // get the current time using this c++ implementation's clock with the smallest tick period / finest resolution
     auto start = high_resolution_clock::now();
 
+    // for each of v1, v2, v3       
+    // allocate contiguous space in heap of size * size in bytes of pointer to int
+    // cast as usable pointer
     v1 = (int *) malloc(size * sizeof(int *));
     v2 = (int *) malloc(size * sizeof(int *));
     v3 = (int *) malloc(size * sizeof(int *));
