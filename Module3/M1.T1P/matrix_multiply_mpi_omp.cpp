@@ -168,7 +168,7 @@
                 // printf("sending data to rank %d", destinationProcessor);
                 MPI_Send(&arrayA, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
                 MPI_Send(&arrayB, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
-                // printf("done sending data to rank %d", destinationProcessor);
+                //printf("done sending data to rank %d", destinationProcessor);
             }
         }
 
@@ -191,23 +191,19 @@
         // printf("\n");
         // printf("rank: %d start row: %d and end row: %d \n", rank, startRow, endRow);
 
-        int row;
-        int column;
-        int offset;
         // performance matrix multiplication on partition for rank
         // private variables are checked often, making them private significantly enhances speed
-        #pragma omp parallel default(none) shared(arrayA, arrayB, arrayC) private(startRow, endRow, row, column, offset) firstprivate(matrixSize)
-        {
-            #pragma omp for
-            for (row = startRow; row < endRow; row++) {
-                for (column = 0; column < matrixSize; column++) {
-                    for (offset = 0; offset < matrixSize; offset++) {
-                        arrayC[row][column] += arrayA[row][offset] * arrayB[offset][column];
-                    }
-                    // printf("%d row - %d column - %ld sum - %d rank\n", row, column, arrayC[row][column], rank);
+        //#pragma omp parallel default(none) shared(arrayA, arrayB, arrayC) private(startRow, endRow, row, column, offset) firstprivate(matrixSize)
+        //{
+        for (int row = startRow; row < endRow; row++) {
+            for (int column = 0; column < matrixSize; column++) {
+                for (int offset = 0; offset < matrixSize; offset++) {
+                    arrayC[row][column] += arrayA[row][offset] * arrayB[offset][column];
                 }
+                //printf("%d row - %d column - %ld sum - %d rank\n", row, column, arrayC[row][column], rank);
             }
         }
+
 
 
         // sync all processes
