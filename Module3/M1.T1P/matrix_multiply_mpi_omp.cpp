@@ -191,10 +191,8 @@
         // printf("\n");
         // printf("rank: %d start row: %d and end row: %d \n", rank, startRow, endRow);
 
-        // performance matrix multiplication on partition for rank
-        // private variables are checked often, making them private significantly enhances speed
-        //#pragma omp parallel default(none) shared(arrayA, arrayB, arrayC) private(startRow, endRow, row, column, offset) firstprivate(matrixSize)
-        //{
+        // perform matrix multiplication on partition for rank
+        #pragma omp parallel for default(shared) firstprivate(matrixSize) collapse(2)
         for (int row = startRow; row < endRow; row++) {
             for (int column = 0; column < matrixSize; column++) {
                 for (int offset = 0; offset < matrixSize; offset++) {
@@ -203,7 +201,6 @@
                 //printf("%d row - %d column - %ld sum - %d rank\n", row, column, arrayC[row][column], rank);
             }
         }
-
 
 
         // sync all processes
