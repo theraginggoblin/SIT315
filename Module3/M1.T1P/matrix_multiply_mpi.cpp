@@ -153,9 +153,13 @@
 
         // processor says hello
         printf("Hello world from processor %s, rank %d out of %d processors\n", processorName, rank, worldSize);
-        // get the current time using this c++ implementation's clock with the smallest tick period / finest resolution
-        //auto start = high_resolution_clock::now();
         double startTime = MPI_Wtime();
+
+        // partitions is rows per processor/rank
+        int* partitions = getPartitions(matrixSize, numProcessors);
+        // startRow and endRow are local processor/rank start and end rows
+        int startRow = getStartRow(partitions, rank);
+        int endRow = getEndRow(partitions, rank);
 
         if (rank == rootRank) {
             printf("Application is mpi matrix multiplication.\n");
@@ -163,28 +167,26 @@
             randomMatrix(arrayA);
             randomMatrix(arrayB);
 
+            int destinationStartRow;
+
             // iterate through all of the workers and send each the matrices
             for (int destinationProcessor = 1; destinationProcessor <= numWorkerProcessors; destinationProcessor++) {
                 // send entire matrices to the other processors
                 // printf("sending data to rank %d", destinationProcessor);
-                MPI_Send(&arrayA, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
+                destinationStartRow = getStartRow(partitions, destinationProcessor);
+                MPI_Send(&arrayA[destinationStartRow][0], matrixSize * partitions[destinationProcessor], MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
                 MPI_Send(&arrayB, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
                 // printf("done sending data to rank %d", destinationProcessor);
             }
         }
 
-
         if (rank > rootRank) {
-            MPI_Recv(&arrayA, matrixSizeSquared, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
+            MPI_Recv(&arrayA[rank][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
             MPI_Recv(&arrayB, matrixSizeSquared, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
         }
 
         // sync all processes
         MPI_Barrier(MPI_COMM_WORLD);
-
-        int* partitions = getPartitions(matrixSize, numProcessors);
-        int startRow = getStartRow(partitions, rank);
-        int endRow = getEndRow(partitions, rank);
 
         // for (int i = 0; i < numProcessors; i++) {
         //     printf("partition i: %d value: %d", i, partitions[i]);
