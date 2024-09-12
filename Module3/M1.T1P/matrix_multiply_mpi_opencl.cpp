@@ -6,6 +6,7 @@
     #include <mpi.h>
     #include <cmath>
     #include <array>
+    #include <omp.h>
 
     // #include <stdio.h>
     // #include <stdlib.h>
@@ -152,8 +153,6 @@
 
         // processor says hello
         printf("Hello world from processor %s, rank %d out of %d processors\n", processorName, rank, worldSize);
-        // get the current time using this c++ implementation's clock with the smallest tick period / finest resolution
-        //auto start = high_resolution_clock::now();
         double startTime = MPI_Wtime();
 
         // partitions is rows per processor/rank
@@ -163,7 +162,7 @@
         int endRow = getEndRow(partitions, rank);
 
         if (rank == rootRank) {
-            printf("Application is mpi matrix multiplication with openmp.\n");
+            printf("Application is mpi matrix multiplication.\n");
             // if root rank setup the two random matrices containing the values for matrix multiplication
             randomMatrix(arrayA);
             randomMatrix(arrayB);
@@ -177,10 +176,9 @@
                 destinationStartRow = getStartRow(partitions, destinationProcessor);
                 MPI_Send(&arrayA[destinationStartRow][0], matrixSize * partitions[destinationProcessor], MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
                 MPI_Send(&arrayB, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
-                //printf("done sending data to rank %d", destinationProcessor);
+                // printf("done sending data to rank %d", destinationProcessor);
             }
         }
-
 
         if (rank > rootRank) {
             MPI_Recv(&arrayA[rank][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
@@ -196,17 +194,15 @@
         // printf("\n");
         // printf("rank: %d start row: %d and end row: %d \n", rank, startRow, endRow);
 
-        // perform matrix multiplication on partition for rank
-        #pragma omp parallel for default(shared) firstprivate(matrixSize) collapse(2)
+        // performance matrix multiplication on partition for rank
         for (int row = startRow; row < endRow; row++) {
             for (int column = 0; column < matrixSize; column++) {
                 for (int offset = 0; offset < matrixSize; offset++) {
                     arrayC[row][column] += arrayA[row][offset] * arrayB[offset][column];
                 }
-                //printf("%d row - %d column - %ld sum - %d rank\n", row, column, arrayC[row][column], rank);
+                // printf("%d row - %d column - %ld sum - %d rank\n", row, column, arrayC[row][column], rank);
             }
         }
-
 
         // sync all processes
         MPI_Barrier(MPI_COMM_WORLD);
