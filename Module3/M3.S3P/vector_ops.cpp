@@ -30,7 +30,6 @@ cl_kernel kernel;
 // command queue variable used by device
 cl_command_queue queue;
 cl_event event = NULL;
-
 int err;
 
 // this function tries to get a GPU device if available, otherwise tries to get a CPU device
