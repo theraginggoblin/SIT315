@@ -14,3 +14,4 @@ ssh 192.168.142.129
 rm -f matrix_multiply.cl && vi matrix_multiply.cl
 rm -f matrix_multiply.cpp && vi matrix_multiply.cpp
 mpic++ matrix_multiply.cpp -l OpenCL -o matrix_multiply
+mpirun -host 192.168.142.129,192.168.142.128 -np 2 ./matrix_multiply

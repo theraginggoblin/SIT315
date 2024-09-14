@@ -15,7 +15,7 @@ using namespace std;
 
 // root rank is rank that will send/receive data and write outputs. aka the master rank
 const int rootRank = 0;
-const int matrixSize = 32;
+const int matrixSize = 1000;
 // tag for sending data out and then data in - used with MPI_Send and MPI_Recv
 const int dataOutTag = 1; // used when sending parts of data to worker processors
 const int dataInTag = 2; // used to receive from worker processors
@@ -23,14 +23,15 @@ const int dataInTag = 2; // used to receive from worker processors
 long arrayA[matrixSize][matrixSize];
 long arrayB[matrixSize][matrixSize];
 long arrayC[matrixSize][matrixSize];
+// long *resultArray;
 // used a few times so may as well calculate once
 long matrixSizeSquared = matrixSize * matrixSize;
 
 // opencl variables
 // first 2 buffers are for v1 and v2. v3 is for holding the result
-cl_mem bufferV1;
-cl_mem bufferV2;
-cl_mem bufferV3;
+cl_mem bufferA;
+cl_mem bufferB;
+cl_mem bufferC;
 // this is a device id variable where the result of create_device is later stored
 cl_device_id device_id;
 // context object for this host program
@@ -60,9 +61,9 @@ void free_memory();
 
 void free_memory() {
     //free the buffers
-    clReleaseMemObject(bufferV1);
-    clReleaseMemObject(bufferV2);
-    clReleaseMemObject(bufferV3);
+    clReleaseMemObject(bufferA);
+    clReleaseMemObject(bufferB);
+    clReleaseMemObject(bufferC);
 
     //free opencl objects
     clReleaseKernel(kernel);
@@ -71,13 +72,14 @@ void free_memory() {
     clReleaseContext(context);
 }
 
-void copy_kernel_args() {
+void copy_kernel_args(int startRow) {
     // kernel needs matrix size for inner most for loop so its the first arg
     // 
-    clSetKernelArg(kernel, 0, sizeof(long), (void *)matrixSize);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&bufferV1);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&bufferV2);
-    clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&bufferV3);
+    clSetKernelArg(kernel, 0, sizeof(int), (void *)&matrixSize);
+    clSetKernelArg(kernel, 1, sizeof(int), (void *)&startRow);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&bufferA);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&bufferB);
+    clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&bufferC);
 
     if (err < 0)
     {
@@ -90,14 +92,14 @@ void copy_kernel_args() {
 // setup buffer memory on device
 void setup_kernel_memory(int partitionSize, int startRow) {
     // copying matrices across
-    bufferV1 = clCreateBuffer(context, CL_MEM_READ_WRITE, partitionSize * matrixSize * sizeof(long), NULL, NULL);
-    bufferV2 = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSizeSquared * sizeof(long), NULL, NULL);
-    bufferV3 = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSizeSquared * sizeof(long), NULL, NULL);
+    bufferA = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSizeSquared * sizeof(long), NULL, NULL);
+    bufferB = clCreateBuffer(context, CL_MEM_READ_WRITE, matrixSizeSquared * sizeof(long), NULL, NULL);
+    bufferC = clCreateBuffer(context, CL_MEM_READ_WRITE, partitionSize * matrixSize * sizeof(long), NULL, NULL);
 
     // Copy matrices
-    clEnqueueWriteBuffer(queue, bufferV1, CL_TRUE, 0, partitionSize * matrixSize * sizeof(long), &arrayA[startRow][0], 0, NULL, NULL);
-    clEnqueueWriteBuffer(queue, bufferV2, CL_TRUE, 0, matrixSizeSquared * sizeof(long), &arrayB[0], 0, NULL, NULL);
-    clEnqueueWriteBuffer(queue, bufferV3, CL_TRUE, 0, matrixSizeSquared * sizeof(long), &arrayC[0], 0, NULL, NULL);
+    clEnqueueWriteBuffer(queue, bufferA, CL_TRUE, 0, matrixSizeSquared * sizeof(long), &arrayA[0], 0, NULL, NULL);
+    clEnqueueWriteBuffer(queue, bufferB, CL_TRUE, 0, matrixSizeSquared * sizeof(long), &arrayB[0], 0, NULL, NULL);
+    clEnqueueWriteBuffer(queue, bufferC, CL_TRUE, 0, partitionSize * matrixSize * sizeof(long), &arrayC[startRow][0], 0, NULL, NULL);
 }
 
 // set up device, program, command queue and kernel
@@ -227,19 +229,21 @@ cl_device_id create_device() {
 }
 
 void openclMatrixMultiply(int partitionSize, int startRow) {
+    // uncomment to troubleshoot
+    //printf("rank %d partition size %d", startRow, partitionSize);
+
     // using 2 dimenions - partition size as we only work on this partition from Array A
-    // 2nd dimension is matrixSize as we need entire size from arrayB
+    // 2nd dimension is matrixSize as we need entire size from arrayB - columns
     size_t global[2] = {(size_t)partitionSize, (size_t)matrixSize};
-    size_t offsets[2] = {(size_t)startRow, (size_t)0};
     // perform setup
     setup_openCL_device_context_queue_kernel((char *)"./matrix_multiply.cl", (char *)"matrix_multiply");
     setup_kernel_memory(partitionSize, startRow);
-    copy_kernel_args();
-    // offsets allow global ids in dimenion 0 (used for row index) to have startRow added to them
-    printf("doing things\n");
-    clEnqueueNDRangeKernel(queue, kernel, 2, offsets, global, NULL, 0, NULL, &event);
+    copy_kernel_args(startRow);
+
+    // enqueue kernel command and wait on it, then read return
+    clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, NULL, 0, NULL, &event);
     clWaitForEvents(1, &event);
-    clEnqueueReadBuffer(queue, bufferV3, CL_TRUE, 0, partitionSize * matrixSize * sizeof(long), &arrayC[startRow][0], 0, NULL, NULL);
+    clEnqueueReadBuffer(queue, bufferC, CL_TRUE, 0, partitionSize * matrixSize * sizeof(long), &arrayC[startRow][0], 0, NULL, NULL);
 }
 
 void randomMatrix(long matrix[][matrixSize]) {
@@ -374,7 +378,7 @@ int main() {
     int endRow = getEndRow(partitions, rank);
 
     if (rank == rootRank) {
-        printf("Application is mpi matrix multiplication.\n");
+        printf("Application is opencl mpi matrix multiplication.\n");
         // if root rank setup the two random matrices containing the values for matrix multiplication
         randomMatrix(arrayA);
         randomMatrix(arrayB);
@@ -385,35 +389,30 @@ int main() {
         for (int destinationProcessor = 1; destinationProcessor <= numWorkerProcessors; destinationProcessor++) {
             // send entire matrices to the other processors
             // printf("sending data to rank %d", destinationProcessor);
-            destinationStartRow = getStartRow(partitions, destinationProcessor);
-            MPI_Send(&arrayA[destinationStartRow][0], matrixSize * partitions[destinationProcessor], MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
+            MPI_Send(&arrayA, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
             MPI_Send(&arrayB, matrixSizeSquared, MPI_LONG, destinationProcessor, dataOutTag, MPI_COMM_WORLD);
             // printf("done sending data to rank %d", destinationProcessor);
         }
     }
 
     if (rank > rootRank) {
-        MPI_Recv(&arrayA[rank][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
+        MPI_Recv(&arrayA, matrixSizeSquared, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
         MPI_Recv(&arrayB, matrixSizeSquared, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
     }
 
     // sync all processes
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // for (int i = 0; i < numProcessors; i++) {
-    //     printf("partition i: %d value: %d", i, partitions[i]);
-    // }
-    // printf("\n");
-    // printf("rank: %d start row: %d and end row: %d \n", rank, startRow, endRow);
-
-    // performance matrix multiplication on partition for rank
+    // performance matrix multiplication on partition for rank - uses opencl
     openclMatrixMultiply(partitions[rank], startRow);
 
     // sync all processes
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank > rootRank) {
+        // printf("sending from rank %d, size %d", rank, partitions[rank] * matrixSize);
         MPI_Send(&arrayC[startRow][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataInTag, MPI_COMM_WORLD);
+        // printf("sent from rank %d", rank);
     }
 
     if (rank == rootRank) {
@@ -425,7 +424,7 @@ int main() {
     
         double duration = MPI_Wtime() - startTime;
         printf("Program took %f seconds\n", duration);
-        createOutputFile("output_matrixC.txt", arrayC);
+        createOutputFile("output_matrixC_mpiopencl.txt", arrayC);
     }
 
     // sync all processes
