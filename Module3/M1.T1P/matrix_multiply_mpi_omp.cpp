@@ -16,7 +16,7 @@ using namespace std;
 
 // root rank is rank that will send/receive data and write outputs. aka the master rank
 const long rootRank = 0;
-const long matrixSize = 1000;
+const long matrixSize = 500;
 // tag for sending data out and then data in - used with MPI_Send and MPI_Recv
 const int dataOutTag = 1; // used when sending parts of data to worker processors
 const int dataInTag = 2; // used to receive from worker processors
@@ -183,7 +183,7 @@ int main() {
 
 
     if (rank > rootRank) {
-        MPI_Recv(&arrayA[rank][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
+        MPI_Recv(&arrayA[startRow][0], partitions[rank] * matrixSize, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
         MPI_Recv(&arrayB, matrixSizeSquared, MPI_LONG, rootRank, dataOutTag, MPI_COMM_WORLD, &status);
     }
 
@@ -224,7 +224,7 @@ int main() {
     
         double duration = MPI_Wtime() - startTime;
         printf("Program took %f seconds\n", duration);
-        createOutputFile("output_matrixC.txt", arrayC);
+        createOutputFile("output_matrixC_openmp.txt", arrayC);
     }
 
     // sync all processes

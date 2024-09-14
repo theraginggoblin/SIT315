@@ -15,7 +15,7 @@ using namespace std;
 
 // root rank is rank that will send/receive data and write outputs. aka the master rank
 const int rootRank = 0;
-const int matrixSize = 1000;
+const int matrixSize = 500;
 // tag for sending data out and then data in - used with MPI_Send and MPI_Recv
 const int dataOutTag = 1; // used when sending parts of data to worker processors
 const int dataInTag = 2; // used to receive from worker processors
